@@ -1,11 +1,13 @@
 #include <iostream>
 #include <stdio.h>
 #include <string.h>
+#include "hex_utils.h"
 
 using namespace std;
 
 #define MEM_SIZE 8192
 #define MAX_LINES (MEM_SIZE/2)
+#define MAX_ORIGINS MAX_LINES
 
 typedef struct LINE {
     bool visited;
@@ -18,26 +20,58 @@ static int dump_size;
 static uint16_t *cmd = reinterpret_cast<uint16_t*>(mem_byte);
 static LINE_t line[MAX_LINES];
 static int pc;
+static int origin[MAX_ORIGINS];
+static int origin_cnt;
 
-static char hex2val(char c)
+typedef bool (*COMMAND_t)(void);
+
+//----------------------------------------------------------------------
+static void add_origin(int addr)
 {
-    if( c >= '0' && c <= '9' )
-        return c - '0';
-    else if( c >= 'A' && c <= 'F' )
-        return 0x0A + c - 'A';
-    return 0;
+    origin[origin_cnt++] = addr;
 }
 
-static uint8_t hex2byte(const char *hex)
+//----------------------------------------------------------------------
+static void delete_first_origin()
 {
-    return uint8_t((hex2val(hex[0]) << 4) + hex2val(hex[1]));
+    if( origin_cnt > 0 )
+    {
+        origin_cnt--;
+        memmove(origin, &origin[1], origin_cnt*sizeof(int) );
+    }
 }
 
-static uint16_t hex2word(const char *hex)
+//----------------------------------------------------------------------
+static bool cmd_rjmp_rcall()
 {
-    return uint16_t((hex2byte(hex) << 8) + hex2byte(&hex[2]));
+    if( (cmd[pc] & 0xC000) != 0xC000)
+        return false;
+    strcpy(line[pc].text, "rjmp");
+    return true;
 }
 
+static COMMAND_t command[] = {
+    cmd_rjmp_rcall
+};
+
+#define COMMAND_COUNT (sizeof(command)/sizeof(COMMAND_t))
+
+//----------------------------------------------------------------------
+static void decode_chain()
+{
+    for(unsigned i = 0; i < COMMAND_COUNT; i++)
+    {
+        int addr = pc;
+        if( command[i]() )
+        {
+            line[addr].decoded = true;
+            line[addr].visited = true;
+            break;
+        }
+    }
+}
+
+//----------------------------------------------------------------------
 static void print_damp()
 {
     for( int i = 0; i < dump_size; i++ )
@@ -47,6 +81,7 @@ static void print_damp()
     }
 }
 
+//----------------------------------------------------------------------
 static void print_code()
 {
     for( int i = 0; i < MAX_LINES; i++ )
@@ -54,6 +89,7 @@ static void print_code()
             puts(line[i].text);
 }
 
+//----------------------------------------------------------------------
 static void load_hex(const char *file_name)
 {
     FILE *fhex;
@@ -89,37 +125,7 @@ static void load_hex(const char *file_name)
     }
 }
 
-typedef bool (*COMMAND_t)(void);
-
-static bool cmd_rjmp_rcall()
-{
-    if( (cmd[pc] & 0xC000) != 0xC000)
-        return false;
-    strcpy(line[pc].text, "rjmp");
-    return true;
-}
-
-static COMMAND_t command[] = {
-    cmd_rjmp_rcall
-};
-
-#define COMMAND_COUNT (sizeof(command)/sizeof(COMMAND_t))
-
-static void decode_chain()
-{
-    for(unsigned i = 0; i < COMMAND_COUNT; i++)
-    {
-        int addr = pc;
-        if( command[i]() )
-        {
-            line[addr].decoded = true;
-            line[addr].visited = true;
-            break;
-        }
-    }
-}
-
-
+//----------------------------------------------------------------------
 int main()
 {
     cout << "Hello World!\n" << endl;
