@@ -1,4 +1,4 @@
-#include "hex_utils.h"
+#include "math_utils.h"
 
 //----------------------------------------------------------------------
 char hex2val(char c)
@@ -21,3 +21,5 @@ uint16_t hex2word(const char *hex)
 {
     return uint16_t((hex2byte(hex) << 8) + hex2byte(&hex[2]));
 }
+
+//
