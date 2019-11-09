@@ -609,6 +609,78 @@ static uint8_t cmd_adiw_subiw(bool process)
 }
 
 //----------------------------------------------------------------------
+static uint8_t cmd_cbi_sbi(bool process)
+{
+    uint16_t cmd = code[pc];
+    if( (cmd & 0xFD00) != 0x9800)
+        return 0;
+    if( process )
+    {
+        uint8_t reg = F16(cmd, 3, 5);
+        uint8_t bit = F16(cmd, 0, 3);
+        if( BIT(cmd, 9) )
+            sprintf(line[pc].text, "sbi\t$%02x,%d\t// %d", reg, bit, reg);
+        else
+            sprintf(line[pc].text, "cbi\t$%02x,%d\t// %d", reg, bit, reg);
+    }
+    return 1;
+}
+
+//----------------------------------------------------------------------
+static uint8_t cmd_sbis_sbic(bool process)
+{
+    uint16_t cmd = code[pc];
+    if( (cmd & 0xFD00) != 0x9900)
+        return 0;
+    if( process )
+    {
+        uint8_t reg = F16(cmd, 3, 5);
+        uint8_t bit = F16(cmd, 0, 3);
+        if( BIT(cmd, 9) )
+            sprintf(line[pc].text, "sbis\t$%02x,%d\t// %d", reg, bit, reg);
+        else
+            sprintf(line[pc].text, "sbic\t$%02x,%d\t// %d", reg, bit, reg);
+        pc++;
+        add_origin(pc + get_instruction_size());
+        pc--;
+    }
+    return 1;
+}
+
+//----------------------------------------------------------------------
+static uint8_t cmd_mul(bool process)
+{
+    uint16_t cmd = code[pc];
+    if( (cmd & 0xFC00) != 0x9C00)
+        return 0;
+    if( process )
+    {
+        uint8_t dst = F16(cmd, 4, 5);
+        uint8_t src = 16 * F16(cmd, 9, 1) + F16(cmd, 0, 4);
+        sprintf(line[pc].text, "mul\tr%d,r%d", dst, src);
+    }
+    return 1;
+}
+
+//----------------------------------------------------------------------
+static uint8_t cmd_in_out(bool process)
+{
+    uint16_t cmd = code[pc];
+    if( (cmd & 0xF000) != 0xB000)
+        return 0;
+    if( process )
+    {
+        uint8_t reg = F16(cmd, 4, 5);
+        uint8_t io_reg = 16 * F16(cmd, 9, 2) + F16(cmd, 0, 4);
+        if( BIT(cmd, 11) )
+            sprintf(line[pc].text, "out\t$%02x,r%d\t// %d", io_reg, reg, io_reg);
+        else
+            sprintf(line[pc].text, "in\tr%d,$%02x\t// %d", reg, io_reg, io_reg);
+    }
+    return 1;
+}
+
+//----------------------------------------------------------------------
 static uint8_t cmd_rjmp_rcall(bool process)
 {
     uint16_t cmd = code[pc];
@@ -623,7 +695,10 @@ static uint8_t cmd_rjmp_rcall(bool process)
             addr = pc + 1 + F16(cmd, 0, 12);
         line[addr].pointed = true;
         if( BIT(cmd, 12) )
+        {
             sprintf(line[pc].text, "rcall\tL%X", addr);
+            add_origin(pc+1);
+        }
         else
             sprintf(line[pc].text, "rjmp\tL%X", addr);
         pc = addr - 1;
@@ -643,6 +718,89 @@ static uint8_t cmd_ldi(bool process)
         uint8_t val = (F16(cmd, 8, 4) << 4) + F16(cmd, 0, 4);
         sprintf(line[pc].text, "ldi\tr%d,%d\t// $%02x", reg, val, val);
     }
+    return 1;
+}
+
+//----------------------------------------------------------------------
+static uint8_t cmd_cond_branch(bool process)
+{
+    static const char brbs[8][5] =
+        { "brlo", "breq", "brmi", "brvs", "brlt", "brhs", "brts", "brie" };
+    static const char brbc[8][5] =
+        { "brsh", "brne", "brpl", "brvc", "brge", "brhc", "brtc", "brid" };
+    static const char alter_set[8][10] =
+        { "\t// brcs", "", "", "", "", "", "", "" };
+    static const char alter_clr[8][10] =
+        { "\t// brcc", "", "", "", "", "", "", "" };
+    uint16_t cmd = code[pc];
+    if( (cmd & 0xF800) != 0xF000)
+        return 0;
+    if( process )
+    {
+        uint8_t bit = F16(cmd, 0, 3);
+        uint8_t offs = F16(cmd, 3, 7);
+        uint16_t addr;
+        if( BIT(offs, 6) )
+            addr = pc + 1 - (0x80 - offs);
+        else
+            addr = pc + 1 + offs;
+        if( BIT(cmd, 10) )
+            sprintf(line[pc].text, "%s\tL%X%s", brbc[bit], addr, alter_clr[bit]);
+        else
+            sprintf(line[pc].text, "%s\tL%X%s", brbs[bit], addr, alter_set[bit]);
+        add_origin(addr);
+        line[addr].pointed = true;
+    }
+    return 1;
+}
+
+//----------------------------------------------------------------------
+static uint8_t cmd_bld_bst(bool process)
+{
+    uint16_t cmd = code[pc];
+    if( (cmd & 0xFC08) != 0xF800)
+        return 0;
+    if( process )
+    {
+        uint8_t reg = F16(cmd, 4, 5);
+        uint8_t bit = F16(cmd, 0, 3);
+        if( BIT(cmd, 9) )
+            sprintf(line[pc].text, "bst\tr%d,%d", reg, bit);
+        else
+            sprintf(line[pc].text, "bld\tr%d,%d", reg, bit);
+    }
+    return 1;
+}
+
+//----------------------------------------------------------------------
+static uint8_t cmd_sbrs_sbrc(bool process)
+{
+    uint16_t cmd = code[pc];
+    if( (cmd & 0xFC08) != 0xFC00)
+        return 0;
+    if( process )
+    {
+        uint8_t reg = F16(cmd, 4, 5);
+        uint8_t bit = F16(cmd, 0, 3);
+        if( BIT(cmd, 9) )
+            sprintf(line[pc].text, "sbrs\tr%d,%d", reg, bit);
+        else
+            sprintf(line[pc].text, "sbrc\tr%d,%d", reg, bit);
+        pc++;
+        add_origin(pc + get_instruction_size());
+        pc--;
+    }
+    return 1;
+}
+
+//----------------------------------------------------------------------
+static uint8_t cmd_not_programmed(bool process)
+{
+    uint16_t cmd = code[pc];
+    if( cmd != 0xFFFF)
+        return 0;
+    if( process )
+        pc--;
     return 1;
 }
 
@@ -679,9 +837,16 @@ static COMMAND_t command[] = {
     cmd_dec,
     cmd_jmp_call,
     cmd_adiw_subiw,
-
+    cmd_cbi_sbi,
+    cmd_sbis_sbic,
+    cmd_mul,
+    cmd_in_out,
     cmd_rjmp_rcall,
-    cmd_ldi
+    cmd_ldi,
+    cmd_cond_branch,
+    cmd_bld_bst,
+    cmd_sbrs_sbrc,
+    cmd_not_programmed
 };
 #define COMMAND_COUNT (int(sizeof(command)/sizeof(COMMAND_t)))
 
@@ -810,10 +975,13 @@ void init_vars()
     origin_cnt = 16;
 }
 
+//#define FILE_NAME "D:\\Proj2019\\Other\\AVR_disasm\\GPig\\GPig.hex"
+#define FILE_NAME "D:\\Proj2019\\Other\\AVR_disasm\\MegaDisasm\\heater_dump.hex"
+
 //----------------------------------------------------------------------
 int main()
 {
-    if (!load_hex("D:\\Proj2019\\Other\\AVR_disasm\\GPig\\GPig.hex") )
+    if (!load_hex(FILE_NAME) )
         return 0;
     init_vars();
     bool result = decode_dump();
