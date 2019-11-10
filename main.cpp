@@ -1,9 +1,6 @@
-#include <iostream>
 #include <stdio.h>
 #include <string.h>
 #include "math_utils.h"
-
-using namespace std;
 
 #define FLASH_END   0xFFF
 #define FLASH_SIZE  (FLASH_END+1)
@@ -600,9 +597,9 @@ static uint8_t cmd_jmp_call(bool process)
         line[addr].pointed = true;
         line[pc+1].visited = true;
         if( BIT(cmd, 1) )
-            sprintf(line[pc].text, "call\tL%X", addr);
+            sprintf(line[pc].text, "call\tL_%X", addr);
         else
-            sprintf(line[pc].text, "jmp\tL%X", addr);
+            sprintf(line[pc].text, "jmp\tL_%X", addr);
         pc = addr - 2;
     }
     return 2;
@@ -716,11 +713,11 @@ static uint8_t cmd_rjmp_rcall(bool process)
         line[addr].pointed = true;
         if( BIT(cmd, 12) )
         {
-            sprintf(line[pc].text, "rcall\tL%X", addr);
+            sprintf(line[pc].text, "rcall\tL_%X", addr);
             add_origin(pc+1);
         }
         else
-            sprintf(line[pc].text, "rjmp\tL%X", addr);
+            sprintf(line[pc].text, "rjmp\tL_%X", addr);
         pc = addr - 1;
     }
     return 1;
@@ -765,9 +762,9 @@ static uint8_t cmd_cond_branch(bool process)
         else
             addr = (pc + 1 + offs) & FLASH_END;
         if( BIT(cmd, 10) )
-            sprintf(line[pc].text, "%s\tL%X%s", brbc[bit], addr, alter_clr[bit]);
+            sprintf(line[pc].text, "%s\tL_%X%s", brbc[bit], addr, alter_clr[bit]);
         else
-            sprintf(line[pc].text, "%s\tL%X%s", brbs[bit], addr, alter_set[bit]);
+            sprintf(line[pc].text, "%s\tL_%X%s", brbs[bit], addr, alter_set[bit]);
         add_origin(addr);
         line[addr].pointed = true;
     }
@@ -937,15 +934,30 @@ static void print_code(const char *file_name)
 {
     FILE *fasm;
     fasm = fopen(file_name, "wt");
+    fprintf(fasm,".include \"m8def.inc\"\n");
+    uint16_t bak_addr = FLASH_END;
     for( int i = 0; i < MAX_LINES; i++ )
     {
         LINE_t *cline = &line[i];
-        if( cline->decoded)
+        if( cline->decoded || (!cline->visited && (code[i] != 0xffff)) )
+        {
+            uint16_t prev = (i - 1) & FLASH_END;
+            uint16_t prev_prev = (i - 2) & FLASH_END;
+            if(    (bak_addr != prev)
+               && ((bak_addr != prev_prev) || !line[prev_prev].visited) )
+                fprintf(fasm,".ORG\t$%X\n", i);
+            bak_addr = i;
+        }
+        if( cline->decoded )
         {
             if( cline->pointed )
-                fprintf(fasm, "L%X:\t%s\n", i, cline->text);
+                fprintf(fasm, "L_%X:\t%s\n", i, cline->text);
             else
                 fprintf(fasm, "\t%s\n", cline->text);
+        }
+        else if( !cline->visited && (code[i] != 0xffff) )
+        {
+            fprintf(fasm, "L_%X:\t.dw\t$%04x\n", i, code[i]);
         }
     }
     fclose(fasm);
@@ -989,13 +1001,15 @@ static bool load_hex(const char *file_name)
     }
 }
 
+#define IRQ_TABLE_SIZE 15
+
 void init_vars()
 {
     pc = 0;
     origin[0] = 0;
-    for(int i = 0; i < 16; i++)
+    for(int i = 0; i < IRQ_TABLE_SIZE; i++)
         origin[i] = i;
-    origin_cnt = 16;
+    origin_cnt = IRQ_TABLE_SIZE;
 }
 
 //#define HEX_FILE "D:\\Proj2019\\Other\\AVR_disasm\\GPig\\GPig.hex"
