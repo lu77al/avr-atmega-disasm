@@ -26,6 +26,21 @@ static uint16_t origin_cnt;
 
 typedef uint8_t (*COMMAND_t)(bool process);
 
+static const char io_name[64][10] =
+ {"TWBR", "TWSR", "TWAR", "TWDR", "ADCL", "ADCH", "ADCSRA", "ADMUX", "ACSR", "UBRRL",
+  "UCSRB", "UCSRA", "UDR", "SPCR", "SPSR", "SPDR", "PIND",   "DDRD", "PORTD", "PINC",
+  "DDRC", "PORTC", "PINB", "DDRB", "PORTB", "$19", "$1A",    "$1B", "EECR", "EEDR",
+  "EEARL", "EEARH", "UBRRH", "WDTCR", "ASSR", "OCR2", "TCNT2", "TCCR2", "ICR1L", "ICR1H",
+  "OCR1BL", "OCR1BH", "OCR1AL", "OCR1AH", "TCNT1L", "TCNT1H", "TCCR1B", "TCCR1A", "SFIOR", "OSCCAL",
+  "TCNT0", "TCCR0", "MCUCSR", "MCUCR", "TWCR", "SPMCR", "TIFR", "TIMSK", "GIFR", "GICR",
+  "$3C", "SPL", "SPH", "SREG"};
+
+static const char reg_name[32][4] =
+ {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9",
+  "r10", "r11", "r12", "r13", "r14", "r15", "r16", "r17", "r18", "r19",
+  "r20", "r21", "r22", "r23", "r24", "r25", "XL", "XH", "YL", "YH",
+  "ZL", "ZH" };
+
 static uint8_t get_instruction_size();
 
 //----------------------------------------------------------------------
@@ -64,7 +79,9 @@ static uint8_t cmd_movw(bool process)
     {
         uint8_t dst = 2 * F16(cmd, 4, 4);
         uint8_t src = 2 * F16(cmd, 0, 4);
-        sprintf(line[pc].text, "movw\tr%d:r%d, r%d:r%d", dst+1, dst, src+1, src);
+        sprintf(line[pc].text, "movw\t%s:%s, %s:%s",
+                reg_name[dst+1], reg_name[dst],
+                reg_name[src+1], reg_name[src]);
     }
     return 1;
 }
@@ -80,9 +97,9 @@ static uint8_t cmd_cpc_cp(bool process)
         uint8_t dst = F16(cmd, 4, 5);
         uint8_t src = 16 * F16(cmd, 9, 1) + F16(cmd, 0, 4);
         if( BIT(cmd, 12) )
-            sprintf(line[pc].text, "cp\tr%d,r%d", dst, src);
+            sprintf(line[pc].text, "cp\t%s,%s", reg_name[dst], reg_name[src]);
         else
-            sprintf(line[pc].text, "cpc\tr%d,r%d", dst, src);
+            sprintf(line[pc].text, "cpc\t%s,%s", reg_name[dst], reg_name[src]);
     }
     return 1;
 }
@@ -98,9 +115,9 @@ static uint8_t cmd_sub_sbc(bool process)
         uint8_t dst = F16(cmd, 4, 5);
         uint8_t src = 16 * F16(cmd, 9, 1) + F16(cmd, 0, 4);
         if( BIT(cmd, 12) )
-            sprintf(line[pc].text, "sub\tr%d,r%d", dst, src);
+            sprintf(line[pc].text, "sub\t%s,%s", reg_name[dst], reg_name[src]);
         else
-            sprintf(line[pc].text, "sbc\tr%d,r%d", dst, src);
+            sprintf(line[pc].text, "sbc\t%s,%s", reg_name[dst], reg_name[src]);
     }
     return 1;
 }
@@ -118,16 +135,16 @@ static uint8_t cmd_add_adc_lsl_rol(bool process)
         if( BIT(cmd, 12) )
         {
             if( dst != src )
-                sprintf(line[pc].text, "adc\tr%d,r%d", dst, src);
+                sprintf(line[pc].text, "adc\t%s,%s", reg_name[dst], reg_name[src]);
             else
-                sprintf(line[pc].text, "rol\tr%d", dst);
+                sprintf(line[pc].text, "rol\t%s", reg_name[dst]);
         }
         else
         {
             if( dst != src )
-                sprintf(line[pc].text, "add\tr%d,r%d", dst, src);
+                sprintf(line[pc].text, "add\t%s,%s", reg_name[dst], reg_name[src]);
             else
-                sprintf(line[pc].text, "lsl\tr%d", dst);
+                sprintf(line[pc].text, "lsl\t%s", reg_name[dst]);
         }
     }
     return 1;
@@ -143,7 +160,7 @@ static uint8_t cmd_cpse(bool process)
     {
         uint8_t dst = F16(cmd, 4, 5);
         uint8_t src = 16 * F16(cmd, 9, 1) + F16(cmd, 0, 4);
-        sprintf(line[pc].text, "cpse\tr%d,r%d", dst, src);
+        sprintf(line[pc].text, "cpse\t%s,%s", reg_name[dst], reg_name[src]);
         pc++;
         add_origin(pc + get_instruction_size());
         pc--;
@@ -161,7 +178,7 @@ static uint8_t cmd_and(bool process)
     {
         uint8_t dst = F16(cmd, 4, 5);
         uint8_t src = 16 * F16(cmd, 9, 1) + F16(cmd, 0, 4);
-        sprintf(line[pc].text, "and\tr%d,r%d", dst, src);
+        sprintf(line[pc].text, "and\t%s,%s", reg_name[dst], reg_name[src]);
     }
     return 1;
 }
@@ -176,7 +193,7 @@ static uint8_t cmd_eor(bool process)
     {
         uint8_t dst = F16(cmd, 4, 5);
         uint8_t src = 16 * F16(cmd, 9, 1) + F16(cmd, 0, 4);
-        sprintf(line[pc].text, "eor\tr%d,r%d", dst, src);
+        sprintf(line[pc].text, "eor\t%s,%s", reg_name[dst], reg_name[src]);
     }
     return 1;
 }
@@ -191,7 +208,7 @@ static uint8_t cmd_or(bool process)
     {
         uint8_t dst = F16(cmd, 4, 5);
         uint8_t src = 16 * F16(cmd, 9, 1) + F16(cmd, 0, 4);
-        sprintf(line[pc].text, "or\tr%d,r%d", dst, src);
+        sprintf(line[pc].text, "or\t%s,%s", reg_name[dst], reg_name[src]);
     }
     return 1;
 }
@@ -206,7 +223,7 @@ static uint8_t cmd_mov(bool process)
     {
         uint8_t dst = F16(cmd, 4, 5);
         uint8_t src = 16 * F16(cmd, 9, 1) + F16(cmd, 0, 4);
-        sprintf(line[pc].text, "mov\tr%d,r%d", dst, src);
+        sprintf(line[pc].text, "mov\t%s,%s", reg_name[dst], reg_name[src]);
     }
     return 1;
 }
@@ -221,7 +238,7 @@ static uint8_t cmd_cpi(bool process)
     {
         uint8_t reg = 16 + F16(cmd, 4, 4);
         uint8_t val = (F16(cmd, 8, 4) << 4) + F16(cmd, 0, 4);
-        sprintf(line[pc].text, "cpi\tr%d,%d\t// $%02x", reg, val, val);
+        sprintf(line[pc].text, "cpi\t%s,%d\t// $%02x", reg_name[reg], val, val);
     }
     return 1;
 }
@@ -237,9 +254,9 @@ static uint8_t cmd_subi_sbci(bool process)
         uint8_t reg = 16 + F16(cmd, 4, 4);
         uint8_t val = (F16(cmd, 8, 4) << 4) + F16(cmd, 0, 4);
         if( BIT(cmd, 12) )
-            sprintf(line[pc].text, "subi\tr%d,%d\t// $%02x", reg, val, val);
+            sprintf(line[pc].text, "subi\t%s,%d\t// $%02x", reg_name[reg], val, val);
         else
-            sprintf(line[pc].text, "sbci\tr%d,%d\t// $%02x", reg, val, val);
+            sprintf(line[pc].text, "sbci\t%s,%d\t// $%02x", reg_name[reg], val, val);
     }
     return 1;
 }
@@ -254,7 +271,7 @@ static uint8_t cmd_ori(bool process)
     {
         uint8_t reg = 16 + F16(cmd, 4, 4);
         uint8_t val = (F16(cmd, 8, 4) << 4) + F16(cmd, 0, 4);
-        sprintf(line[pc].text, "ori\tr%d,%d\t// $%02x", reg, val, val);
+        sprintf(line[pc].text, "ori\t%s,%d\t// $%02x", reg_name[reg], val, val);
     }
     return 1;
 }
@@ -269,7 +286,7 @@ static uint8_t cmd_andi(bool process)
     {
         uint8_t reg = 16 + F16(cmd, 4, 4);
         uint8_t val = (F16(cmd, 8, 4) << 4) + F16(cmd, 0, 4);
-        sprintf(line[pc].text, "andi\tr%d,%d\t// $%02x", reg, val, val);
+        sprintf(line[pc].text, "andi\t%s,%d\t// $%02x", reg_name[reg], val, val);
     }
     return 1;
 }
@@ -287,16 +304,16 @@ static uint8_t cmd_ldd_std(bool process)
         if( BIT(cmd, 9) )
         {
             if( BIT(cmd, 3) )
-                sprintf(line[pc].text, "std\tY+$%02x,r%d\t// %d", offset, reg, offset);
+                sprintf(line[pc].text, "std\tY+$%02x,%s\t// %d", offset, reg_name[reg], offset);
             else
-                sprintf(line[pc].text, "std\tZ+$%02x,r%d\t// %d", offset, reg, offset);
+                sprintf(line[pc].text, "std\tZ+$%02x,%s\t// %d", offset, reg_name[reg], offset);
         }
         else
         {
             if( BIT(cmd, 3) )
-                sprintf(line[pc].text, "ldd\tr%d,Y+$%02x\t// %d", reg, offset, offset);
+                sprintf(line[pc].text, "ldd\t%s,Y+$%02x\t// %d", reg_name[reg], offset, offset);
             else
-                sprintf(line[pc].text, "ldd\tr%d,Z+$%02x\t// %d", reg, offset, offset);
+                sprintf(line[pc].text, "ldd\t%s,Z+$%02x\t// %d", reg_name[reg], offset, offset);
         }
     }
     return 1;
@@ -314,9 +331,9 @@ static uint8_t cmd_lds_sts(bool process)
         uint16_t addr = code[pc+1];
         line[pc+1].visited = true;
         if( BIT(cmd, 9) )
-            sprintf(line[pc].text, "sts\t$%04x,r%d\t// %d", addr, reg, addr);
+            sprintf(line[pc].text, "sts\t$%04x,%s\t// %d", addr, reg_name[reg], addr);
         else
-            sprintf(line[pc].text, "lds\tr%d,$%04x\t// %d", reg, addr, addr);
+            sprintf(line[pc].text, "lds\t%s,$%04x\t// %d", reg_name[reg], addr, addr);
     }
     return 2;
 }
@@ -333,16 +350,16 @@ static uint8_t cmd_ld_st_plus(bool process)
         if( BIT(cmd, 9) )
         {
             if( BIT(cmd, 3) )
-                sprintf(line[pc].text, "st\tY+,r%d", reg);
+                sprintf(line[pc].text, "st\tY+,%s", reg_name[reg]);
             else
-                sprintf(line[pc].text, "st\tZ+,r%d", reg);
+                sprintf(line[pc].text, "st\tZ+,%s", reg_name[reg]);
         }
         else
         {
             if( BIT(cmd, 3) )
-                sprintf(line[pc].text, "ld\tr%d,Y+", reg);
+                sprintf(line[pc].text, "ld\t%s,Y+", reg_name[reg]);
             else
-                sprintf(line[pc].text, "ld\tr%d,Z+", reg);
+                sprintf(line[pc].text, "ld\t%s,Z+", reg_name[reg]);
         }
     }
     return 1;
@@ -360,16 +377,16 @@ static uint8_t cmd_ld_st_minus(bool process)
         if( BIT(cmd, 9) )
         {
             if( BIT(cmd, 3) )
-                sprintf(line[pc].text, "st\t-Y,r%d", reg);
+                sprintf(line[pc].text, "st\t-Y,%s", reg_name[reg]);
             else
-                sprintf(line[pc].text, "st\t-Z,r%d", reg);
+                sprintf(line[pc].text, "st\t-Z,%s", reg_name[reg]);
         }
         else
         {
             if( BIT(cmd, 3) )
-                sprintf(line[pc].text, "ld\tr%d,-Y", reg);
+                sprintf(line[pc].text, "ld\t%s,-Y", reg_name[reg]);
             else
-                sprintf(line[pc].text, "ld\tr%d,-Z", reg);
+                sprintf(line[pc].text, "ld\t%s,-Z", reg_name[reg]);
         }
     }
     return 1;
@@ -385,9 +402,9 @@ static uint8_t cmd_e_lpm(bool process)
     {
         uint8_t reg = F16(cmd, 4, 5);
         if( BIT(cmd, 1) )
-            sprintf(line[pc].text, "elpm\tr%d,Z", reg);
+            sprintf(line[pc].text, "elpm\t%s,Z", reg_name[reg]);
         else
-            sprintf(line[pc].text, "lpm\tr%d,Z", reg);
+            sprintf(line[pc].text, "lpm\t%s,Z", reg_name[reg]);
     }
     return 1;
 }
@@ -402,9 +419,9 @@ static uint8_t cmd_e_lpm_plus(bool process)
     {
         uint8_t reg = F16(cmd, 4, 5);
         if( BIT(cmd, 1) )
-            sprintf(line[pc].text, "elpm\tr%d,Z+", reg);
+            sprintf(line[pc].text, "elpm\t%s,Z+", reg_name[reg]);
         else
-            sprintf(line[pc].text, "lpm\tr%d,Z+", reg);
+            sprintf(line[pc].text, "lpm\t%s,Z+", reg_name[reg]);
     }
     return 1;
 }
@@ -424,24 +441,24 @@ static uint8_t cmd_ld_st_x(bool process)
         if( BIT(cmd, 9) )
             switch( type ) {
             case 0:
-                sprintf(line[pc].text, "st\tX,r%d", reg);
+                sprintf(line[pc].text, "st\tX,%s", reg_name[reg]);
                 break;
             case 1:
-                sprintf(line[pc].text, "st\tX+,r%d", reg);
+                sprintf(line[pc].text, "st\tX+,%s", reg_name[reg]);
                 break;
             default:
-                sprintf(line[pc].text, "st\t-X,r%d", reg);
+                sprintf(line[pc].text, "st\t-X,%s", reg_name[reg]);
             }
         else
             switch( type ) {
             case 0:
-                sprintf(line[pc].text, "ld\tr%d,X", reg);
+                sprintf(line[pc].text, "ld\t%s,X", reg_name[reg]);
                 break;
             case 1:
-                sprintf(line[pc].text, "ld\tr%d,X+", reg);
+                sprintf(line[pc].text, "ld\t%s,X+", reg_name[reg]);
                 break;
             default:
-                sprintf(line[pc].text, "ld\tr%d,-X", reg);
+                sprintf(line[pc].text, "ld\t%s,-X", reg_name[reg]);
             }
     }
     return 1;
@@ -457,9 +474,9 @@ static uint8_t cmd_push_pop(bool process)
     {
         uint8_t reg = F16(cmd, 4, 5);
         if( BIT(cmd, 9) )
-            sprintf(line[pc].text, "push\tr%d", reg);
+            sprintf(line[pc].text, "push\t%s", reg_name[reg]);
         else
-            sprintf(line[pc].text, "pop\tr%d", reg);
+            sprintf(line[pc].text, "pop\t%s", reg_name[reg]);
     }
     return 1;
 }
@@ -478,7 +495,7 @@ static uint8_t cmd_one_operand(bool process)
     if( process )
     {
         uint8_t reg = F16(cmd, 4, 5);
-        sprintf(line[pc].text, "%s\tr%d", oo_instr[type], reg);
+        sprintf(line[pc].text, "%s\t%s", oo_instr[type], reg_name[reg]);
     }
     return 1;
 }
@@ -563,7 +580,7 @@ static uint8_t cmd_dec(bool process)
     if( process )
     {
         uint8_t reg = F16(cmd, 4, 5);
-        sprintf(line[pc].text, "dec\tr%d", reg);
+        sprintf(line[pc].text, "dec\t%s", reg_name[reg]);
     }
     return 1;
 }
@@ -619,9 +636,9 @@ static uint8_t cmd_cbi_sbi(bool process)
         uint8_t reg = F16(cmd, 3, 5);
         uint8_t bit = F16(cmd, 0, 3);
         if( BIT(cmd, 9) )
-            sprintf(line[pc].text, "sbi\t$%02x,%d\t// %d", reg, bit, reg);
+            sprintf(line[pc].text, "sbi\t%s,%d", io_name[reg], bit);
         else
-            sprintf(line[pc].text, "cbi\t$%02x,%d\t// %d", reg, bit, reg);
+            sprintf(line[pc].text, "cbi\t%s,%d", io_name[reg], bit);
     }
     return 1;
 }
@@ -637,9 +654,9 @@ static uint8_t cmd_sbis_sbic(bool process)
         uint8_t reg = F16(cmd, 3, 5);
         uint8_t bit = F16(cmd, 0, 3);
         if( BIT(cmd, 9) )
-            sprintf(line[pc].text, "sbis\t$%02x,%d\t// %d", reg, bit, reg);
+            sprintf(line[pc].text, "sbis\t%s,%d", io_name[reg], bit);
         else
-            sprintf(line[pc].text, "sbic\t$%02x,%d\t// %d", reg, bit, reg);
+            sprintf(line[pc].text, "sbic\t%s,%d", io_name[reg], bit);
         pc++;
         add_origin(pc + get_instruction_size());
         pc--;
@@ -657,7 +674,7 @@ static uint8_t cmd_mul(bool process)
     {
         uint8_t dst = F16(cmd, 4, 5);
         uint8_t src = 16 * F16(cmd, 9, 1) + F16(cmd, 0, 4);
-        sprintf(line[pc].text, "mul\tr%d,r%d", dst, src);
+        sprintf(line[pc].text, "mul\t%s,%s", reg_name[dst], reg_name[src]);
     }
     return 1;
 }
@@ -673,9 +690,9 @@ static uint8_t cmd_in_out(bool process)
         uint8_t reg = F16(cmd, 4, 5);
         uint8_t io_reg = 16 * F16(cmd, 9, 2) + F16(cmd, 0, 4);
         if( BIT(cmd, 11) )
-            sprintf(line[pc].text, "out\t$%02x,r%d\t// %d", io_reg, reg, io_reg);
+            sprintf(line[pc].text, "out\t%s,%s", io_name[io_reg], reg_name[reg]);
         else
-            sprintf(line[pc].text, "in\tr%d,$%02x\t// %d", reg, io_reg, io_reg);
+            sprintf(line[pc].text, "in\t%s,%s", reg_name[reg], io_name[io_reg]);
     }
     return 1;
 }
@@ -716,7 +733,7 @@ static uint8_t cmd_ldi(bool process)
     {
         uint8_t reg = 16 + F16(cmd, 4, 4);
         uint8_t val = (F16(cmd, 8, 4) << 4) + F16(cmd, 0, 4);
-        sprintf(line[pc].text, "ldi\tr%d,%d\t// $%02x", reg, val, val);
+        sprintf(line[pc].text, "ldi\t%s,%d\t// $%02x", reg_name[reg], val, val);
     }
     return 1;
 }
@@ -765,9 +782,9 @@ static uint8_t cmd_bld_bst(bool process)
         uint8_t reg = F16(cmd, 4, 5);
         uint8_t bit = F16(cmd, 0, 3);
         if( BIT(cmd, 9) )
-            sprintf(line[pc].text, "bst\tr%d,%d", reg, bit);
+            sprintf(line[pc].text, "bst\t%s,%d", reg_name[reg], bit);
         else
-            sprintf(line[pc].text, "bld\tr%d,%d", reg, bit);
+            sprintf(line[pc].text, "bld\t%s,%d", reg_name[reg], bit);
     }
     return 1;
 }
@@ -783,9 +800,9 @@ static uint8_t cmd_sbrs_sbrc(bool process)
         uint8_t reg = F16(cmd, 4, 5);
         uint8_t bit = F16(cmd, 0, 3);
         if( BIT(cmd, 9) )
-            sprintf(line[pc].text, "sbrs\tr%d,%d", reg, bit);
+            sprintf(line[pc].text, "sbrs\t%s,%d", reg_name[reg], bit);
         else
-            sprintf(line[pc].text, "sbrc\tr%d,%d", reg, bit);
+            sprintf(line[pc].text, "sbrc\t%s,%d", reg_name[reg], bit);
         pc++;
         add_origin(pc + get_instruction_size());
         pc--;
@@ -887,8 +904,11 @@ static bool decode_chain()
 {
     pc = origin[0];
     while( !line[pc].decoded )
+    {
+        printf("%d\n", pc);
         if(!decode_instruction())
             return false;
+    }
     delete_first_origin();
     return true;
 }
@@ -913,19 +933,22 @@ static void print_dump()
 }
 
 //----------------------------------------------------------------------
-static void print_code()
+static void print_code(const char *file_name)
 {
+    FILE *fasm;
+    fasm = fopen(file_name, "wt");
     for( int i = 0; i < MAX_LINES; i++ )
     {
         LINE_t *cline = &line[i];
         if( cline->decoded)
         {
             if( cline->pointed )
-                printf("L%X:\t%s\n", i, cline->text);
+                fprintf(fasm, "L%X:\t%s\n", i, cline->text);
             else
-                printf("\t%s\n", cline->text);
+                fprintf(fasm, "\t%s\n", cline->text);
         }
     }
+    fclose(fasm);
 }
 
 //----------------------------------------------------------------------
@@ -973,21 +996,25 @@ void init_vars()
     for(int i = 0; i < 16; i++)
         origin[i] = i;
     origin_cnt = 16;
+    origin[0] = 303;
 }
 
-//#define FILE_NAME "D:\\Proj2019\\Other\\AVR_disasm\\GPig\\GPig.hex"
-#define FILE_NAME "D:\\Proj2019\\Other\\AVR_disasm\\MegaDisasm\\heater_dump.hex"
+//#define HEX_FILE "D:\\Proj2019\\Other\\AVR_disasm\\GPig\\GPig.hex"
+#define HEX_FILE "D:\\Proj2019\\Other\\AVR_disasm\\MegaDisasm\\heater_dump.hex"
+#define ASM_FILE "D:\\Proj2019\\Other\\AVR_disasm\\MegaDisasm\\heater.asm"
 
 //----------------------------------------------------------------------
 int main()
 {
-    if (!load_hex(FILE_NAME) )
+    if (!load_hex(HEX_FILE) )
         return 0;
     init_vars();
     bool result = decode_dump();
-    print_code();
     if( result )
+    {
+        print_code(ASM_FILE);
         puts("\nDecoding Ok");
+    }
     else
     {
         puts("\nDecoding failed\n");
