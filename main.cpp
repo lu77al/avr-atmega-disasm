@@ -5,9 +5,12 @@
 
 using namespace std;
 
-#define MEM_SIZE 8192
-#define MAX_LINES (MEM_SIZE/2)
-#define MAX_ORIGINS MAX_LINES
+#define FLASH_END   0xFFF
+#define FLASH_SIZE  (FLASH_END+1)
+
+#define MEM_SIZE (FLASH_SIZE*2)
+#define MAX_LINES FLASH_SIZE
+#define MAX_ORIGINS FLASH_SIZE
 
 typedef struct LINE {
     bool visited;
@@ -707,9 +710,9 @@ static uint8_t cmd_rjmp_rcall(bool process)
     {
         uint16_t addr;
         if( BIT(cmd, 11) )
-            addr = pc + 1 - (0x1000 - F16(cmd, 0, 12) );
+            addr = (pc + 1 - (0x1000 - F16(cmd, 0, 12) )) & FLASH_END;
         else
-            addr = pc + 1 + F16(cmd, 0, 12);
+            addr = (pc + 1 + F16(cmd, 0, 12)) & FLASH_END;
         line[addr].pointed = true;
         if( BIT(cmd, 12) )
         {
@@ -758,9 +761,9 @@ static uint8_t cmd_cond_branch(bool process)
         uint8_t offs = F16(cmd, 3, 7);
         uint16_t addr;
         if( BIT(offs, 6) )
-            addr = pc + 1 - (0x80 - offs);
+            addr = (pc + 1 - (0x80 - offs)) & FLASH_END;
         else
-            addr = pc + 1 + offs;
+            addr = (pc + 1 + offs) & FLASH_END;
         if( BIT(cmd, 10) )
             sprintf(line[pc].text, "%s\tL%X%s", brbc[bit], addr, alter_clr[bit]);
         else
@@ -904,11 +907,8 @@ static bool decode_chain()
 {
     pc = origin[0];
     while( !line[pc].decoded )
-    {
-        printf("%d\n", pc);
         if(!decode_instruction())
             return false;
-    }
     delete_first_origin();
     return true;
 }
@@ -996,7 +996,6 @@ void init_vars()
     for(int i = 0; i < 16; i++)
         origin[i] = i;
     origin_cnt = 16;
-    origin[0] = 303;
 }
 
 //#define HEX_FILE "D:\\Proj2019\\Other\\AVR_disasm\\GPig\\GPig.hex"
